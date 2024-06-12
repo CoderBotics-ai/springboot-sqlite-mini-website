@@ -1,40 +1,65 @@
+
 package az.mm.developerjobs.entity;
 
 import java.io.Serializable;
-import javax.persistence.*;
+import org.bson.types.ObjectId;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
- *
- * @author MM <mushfiqazeri@gmail.com>
- */
-@Entity
-@Table(name = "all_vacancies")
+*
+* @author MM <mushfiqazeri@gmail.com>
+*/
+@Document(collection = "all_vacancies")
 public class JobInfo implements Serializable {
-    
+
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-    private String link;
-    private String jobTitle; 
+    private ObjectId id;
+    private String urlSuffix;
+    private String countryCode;
+    private String jobTitle;
     private String company;
+    private String content;
+    private String createdAt;
+    private String updatedAt;
+
+    private String link;
     private String salary;
-    private String published; 
+    private String published;
     private String deadline;
     private String website;
-    private String content;
     private String insertDate;
-    private String jobType; 
-    private String location; 
-    private String countryCode;   
-    private String urlSuffix;
-    @Transient
-    private String imageSrc; 
-    
-    
+    private String jobType;
+    private String location;
+
     public JobInfo() {}
 
+    // Getters and setters for required fields making sure they match the MONGO_SCHEMA
+    public ObjectId getId() {
+        return id;
+    }
+
+    public void setId(ObjectId id) {
+        this.id = id;
+    }
+
+    public String getUrlSuffix() {
+        return urlSuffix;
+    }
+
+    public void setUrlSuffix(String urlSuffix) {
+        this.urlSuffix = urlSuffix;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
+    }
 
     public String getJobTitle() {
         return jobTitle;
@@ -50,6 +75,39 @@ public class JobInfo implements Serializable {
 
     public void setCompany(String company) {
         this.company = company;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    // Getters and setters for additional fields not required in MONGO_SCHEMA
+    public String getLink() {
+        return link;
+    }
+
+    public void setLink(String link) {
+        this.link = link;
     }
 
     public String getSalary() {
@@ -76,36 +134,12 @@ public class JobInfo implements Serializable {
         this.deadline = deadline;
     }
 
-    public String getLink() {
-        return link;
-    }
-
-    public void setLink(String link) {
-        this.link = link;
-    }
-
     public String getWebsite() {
         return website;
     }
 
     public void setWebsite(String website) {
         this.website = website;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
     }
 
     public String getInsertDate() {
@@ -116,22 +150,6 @@ public class JobInfo implements Serializable {
         this.insertDate = insertDate;
     }
 
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public String getCountryCode() {
-        return countryCode;
-    }
-
-    public void setCountryCode(String countryCode) {
-        this.countryCode = countryCode;
-    }
-
     public String getJobType() {
         return jobType;
     }
@@ -139,22 +157,12 @@ public class JobInfo implements Serializable {
     public void setJobType(String jobType) {
         this.jobType = jobType;
     }
-    
-    public String getUrlSuffix() {
-        return urlSuffix;
+
+    public String getLocation() {
+        return location;
     }
 
-    public void setUrlSuffix(String urlSuffix) {
-        this.urlSuffix = urlSuffix;
+    public void setLocation(String location) {
+        this.location = location;
     }
-    
-
-    public String getImageSrc() {
-        return imageSrc;
-    }
-
-    public void setImageSrc(String imageSrc) {
-        this.imageSrc = imageSrc;
-    }
-
 }
