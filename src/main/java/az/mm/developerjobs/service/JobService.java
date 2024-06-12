@@ -4,98 +4,126 @@ package az.mm.developerjobs.service;
 import az.mm.developerjobs.constant.ImageSource;
 import az.mm.developerjobs.entity.JobInfo;
 import az.mm.developerjobs.model.Pagination;
-import az.mm.developerjobs.repository.JobRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Sorts;
+import com.mongodb.client.model.Updates;
+import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.stereotype.Service;
 
-/**
- *
- * @author MM <mushfiqazeri@gmail.com>
- */
 @Service
 public class JobService {
-    
+
     private final Logger logger = LoggerFactory.getLogger(JobService.class);
-    
+
     @Autowired
-    private JobRepository jobRepository;
-    
+    private MongoDatabase mongoDatabase;
+
     @Autowired
     private JavaMailSender javaMailSender;
 
-
     public List<JobInfo> getJobsWithLimit(String countryCode, int start) {
         List<JobInfo> jobs = new ArrayList<>();
-        jobRepository.getJobsWithLimit(countryCode, start, 10).forEach((j) -> {
-            j.setImageSrc(createImageSource(j.getWebsite(), j.getJobTitle()));
-            jobs.add(j);
-        });
-        
+        MongoCollection<Document> collection = mongoDatabase.getCollection("jobs");
+        collection.find(Filters.eq("countryCode", countryCode))
+                .skip(start)
+                .limit(10)
+                .forEach((doc) -> {
+                    JobInfo job = documentToJobInfo(doc);
+                    job.setImageSrc(createImageSource(job.getWebsite(), job.getJobTitle()));
+                    jobs.add(job);
+                });
+
         return jobs;
     }
-    
+
     public List<JobInfo> getJobsWithPageRequest(String countryCode, int pageIndex) {
-        PageRequest pageRequest = new PageRequest(pageIndex, 10, Sort.Direction.DESC, "id");
         List<JobInfo> jobs = new ArrayList<>();
-        jobRepository.findAllByCountryCode(countryCode, pageRequest).forEach((j) -> {
-            j.setImageSrc(createImageSource(j.getWebsite(), j.getJobTitle()));
-            jobs.add(j);
-        });
-        
+        MongoCollection<Document> collection = mongoDatabase.getCollection("jobs");
+        collection.find(Filters.eq("countryCode", countryCode))
+                .sort(Sorts.descending("id"))
+                .skip(pageIndex * 10)
+                .limit(10)
+                .forEach((doc) -> {
+                    JobInfo job = documentToJobInfo(doc);
+                    job.setImageSrc(createImageSource(job.getWebsite(), job.getJobTitle()));
+                    jobs.add(job);
+                });
+
         return jobs;
     }
-    
+
     public JobInfo getJob(int id, String title) {
-        JobInfo job = jobRepository.findByIdAndUrlSuffix(id, title);
-        if(job != null)
+        MongoCollection<Document> collection = mongoDatabase.getCollection("jobs");
+        Document doc = collection.find(Filters.and(Filters.eq("id", id), Filters.eq("urlSuffix", title))).first();
+        if (doc != null) {
+            JobInfo job = documentToJobInfo(doc);
             job.setImageSrc(createImageSource(job.getWebsite(), job.getJobTitle()));
-        return job;
+            return job;
+        }
+        return null;
     }
-    
-    public int countOfVacancy(String countryCode){
-        int count = jobRepository.countByCountryCode(countryCode);
-        return count;
+
+    public int countOfVacancy(String countryCode) {
+        MongoCollection<Document> collection = mongoDatabase.getCollection("jobs");
+        long count = collection.countDocuments(Filters.eq("countryCode", countryCode));
+        return (int) count;
     }
-    
+
     public List<JobInfo> caseInsensitiveSearchResult(String searchText) {
         List<JobInfo> jobs = new ArrayList<>();
-        jobRepository.searchResult(searchText).forEach((j) -> {
-            j.setImageSrc(createImageSource(j.getWebsite(), j.getJobTitle()));
-            jobs.add(j);
+        MongoCollection<Document> collection = mongoDatabase.getCollection("jobs");
+        collection.find(Filters.regex("jobTitle", searchText, "i")).forEach((doc) -> {
+            JobInfo job = documentToJobInfo(doc);
+            job.setImageSrc(createImageSource(job.getWebsite(), job.getJobTitle()));
+            jobs.add(job);
         });
-        
+
         return jobs;
     }
-    
+
     public List<JobInfo> caseSensitiveSearchResult(String searchText) {
         List<JobInfo> jobs = new ArrayList<>();
         logger.info("Starting search... [{}]", searchText);
-        jobRepository.findAll()
-                .parallelStream()
-                .filter(job -> job.getJobTitle().contains(searchText) 
-                                || job.getCompany().contains(searchText) 
-                                || job.getContent().contains(searchText))
-                .collect(Collectors.toList())
-                .forEach((j) -> {
-                    j.setImageSrc(createImageSource(j.getWebsite(), j.getJobTitle()));
-                    jobs.add(j);
-                });
+        MongoCollection<Document> collection = mongoDatabase.getCollection("jobs");
+        collection.find().forEach((doc) -> {
+            JobInfo job = documentToJobInfo(doc);
+            if (job.getJobTitle().contains(searchText) || job.getCompany().contains(searchText) || job.getContent().contains(searchText)) {
+                job.setImageSrc(createImageSource(job.getWebsite(), job.getJobTitle()));
+                jobs.add(job);
+            }
+        });
         logger.info("Ending search..., result: {}", jobs.size());
-        
+
         jobs.sort((j1, j2) -> j2.getId() - j1.getId());
-        
+
         return jobs;
     }
-    
+
+    private JobInfo documentToJobInfo(Document doc) {
+        JobInfo job = new JobInfo();
+        job.setId(doc.getInteger("id"));
+        job.setUrlSuffix(doc.getString("urlSuffix"));
+        job.setCountryCode(doc.getString("countryCode"));
+        job.setJobTitle(doc.getString("jobTitle"));
+        job.setCompany(doc.getString("company"));
+        job.setContent(doc.getString("content"));
+        job.setCreatedAt(doc.getDate("createdAt"));
+        job.setUpdatedAt(doc.getDate("updatedAt"));
+        return job;
+    }
+
     private String createImageSource(String website, String jobTitle) {
         ImageSource imgSource;
         switch (website) {
@@ -111,7 +139,7 @@ public class JobService {
             case "banco.az":
                 imgSource = ImageSource.BANCO_AZ;
                 break;
-            case "careerbuilder.com": 
+            case "careerbuilder.com":
             case "monster.de":
                 imgSource = getDeveloperImageUrl(jobTitle);
                 break;
@@ -144,9 +172,8 @@ public class JobService {
 
         return imgSource;
     }
-    
-    
-    public Pagination createPagination(String countryCode, int page){
+
+    public Pagination createPagination(String countryCode, int page) {
         int vacancyCount = countOfVacancy(countryCode);
         int count = (int) Math.ceil(vacancyCount / 10.0);
         int prev = (page != 1) ? (page - 1) : 1;
@@ -162,13 +189,12 @@ public class JobService {
             begin = count - 9;
             if (begin < 1) begin = 1;
         }
-        
-       Pagination pagination = new Pagination(count, begin, end, prev, next);
-       
-       return pagination;
+
+        Pagination pagination = new Pagination(count, begin, end, prev, next);
+
+        return pagination;
     }
-    
-    
+
     public void sendMail(String from, String subject, String message) {
         SimpleMailMessage mailMessage = new SimpleMailMessage();
         mailMessage.setTo("contact@developerjobs.info"); //which email you want to send
@@ -178,5 +204,5 @@ public class JobService {
         javaMailSender.send(mailMessage);
         logger.info("Mail sent");
     }
-    
+
 }
